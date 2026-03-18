@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Dependency Tracker — Results</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 32px 20px;
+        }
+
+        /* ── TOP HEADER ── */
+        .header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #38bdf8;
+        }
+
+        .header p {
+            color: #64748b;
+            margin-top: 6px;
+            font-size: 0.9rem;
+        }
+
+        .file-info {
+            display: inline-flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .file-tag {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        /* ── STATS ROW ── */
+        .stats {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 18px 28px;
+            text-align: center;
+            min-width: 130px;
+        }
+
+        .stat-card .num {
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .num.blue   { color: #38bdf8; }
+        .num.green  { color: #4ade80; }
+        .num.red    { color: #f87171; }
+        .num.yellow { color: #fbbf24; }
+
+        /* ── SECTION TITLES ── */
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title .count-badge {
+            background: #334155;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            padding: 2px 10px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        /* ── DEPENDENCY CARDS GRID ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        /* ── INDIVIDUAL CARD ── */
+        .dep-card {
+            border-radius: 12px;
+            padding: 18px 20px;
+            border-left: 4px solid transparent;
+            position: relative;
+            transition: transform 0.15s;
+        }
+
+        .dep-card:hover { transform: translateY(-2px); }
+
+        /* Used (green) card */
+        .dep-card.used {
+            background: #052e16;
+            border-color: #4ade80;
+            border-top: 1px solid #166534;
+            border-right: 1px solid #166534;
+            border-bottom: 1px solid #166534;
+        }
+
+        /* Unused / bloat (red) card */
+        .dep-card.unused {
+            background: #1c0a0a;
+            border-color: #f87171;
+            border-top: 1px solid #7f1d1d;
+            border-right: 1px solid #7f1d1d;
+            border-bottom: 1px solid #7f1d1d;
+        }
+
+        /* Transitive (blue) card */
+        .dep-card.transitive {
+            background: #0c1929;
+            border-color: #38bdf8;
+            border-top: 1px solid #1e3a5f;
+            border-right: 1px solid #1e3a5f;
+            border-bottom: 1px solid #1e3a5f;
+        }
+
+        .dep-card .artifact-id {
+            font-size: 0.95rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 8px;
+        }
+
+        .dep-card.used      .artifact-id { color: #4ade80; }
+        .dep-card.unused    .artifact-id { color: #f87171; }
+        .dep-card.transitive .artifact-id { color: #38bdf8; }
+
+        .dep-card .description {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .dep-card .status-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .dep-card.used      .status-tag { background: #14532d; color: #86efac; }
+        .dep-card.unused    .status-tag { background: #450a0a; color: #fca5a5; }
+        .dep-card.transitive .status-tag { background: #0c2238; color: #7dd3fc; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            background: #1e293b;
+            border: 1px dashed #334155;
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            color: #475569;
+            margin-bottom: 48px;
+        }
+
+        /* ── BACK BUTTON ── */
+        .back-btn {
+            display: inline-block;
+            text-decoration: none;
+            background: #1e293b;
+            color: #38bdf8;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background 0.2s;
+            margin-bottom: 40px;
+        }
+
+        .back-btn:hover { background: #334155; }
+
+        /* ── DIVIDER ── */
+        .divider {
+            border: none;
+            border-top: 1px solid #1e293b;
+            margin: 0 0 36px;
+        }
+
+        .max-w {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="max-w">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🔍 Analysis Report</h1>
+        <p>AI-powered dependency bloat detection</p>
+        <div class="file-info">
+            <span class="file-tag">📋 <span th:text="${pomFile}">pom.xml</span></span>
+            <span class="file-tag">☕ <span th:text="${jarFile}">app.jar</span></span>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats">
+        <div class="stat-card">
+            <div class="num blue"  th:text="${totalPom}">0</div>
+            <div class="label">Declared in POM</div>
+        </div>
+        <div class="stat-card">
+            <div class="num blue"  th:text="${totalJar}">0</div>
+            <div class="label">Found in JAR</div>
+        </div>
+        <div class="stat-card">
+            <div class="num green" th:text="${totalUsed}">0</div>
+            <div class="label">Used</div>
+        </div>
+        <div class="stat-card">
+            <div class="num red"   th:text="${totalUnused}">0</div>
+            <div class="label">Potentially Unused</div>
+        </div>
+        <div class="stat-card">
+            <div class="num yellow" th:text="${totalTransitive}">0</div>
+            <div class="label">Transitive Only</div>
+        </div>
+    </div>
+
+    <a href="/" class="back-btn">← Analyze Another Project</a>
+
+    <hr class="divider"/>
+
+    <!-- ── SECTION 1: USED DEPENDENCIES (GREEN) ── -->
+    <div class="section-title">
+        <span>✅ Used Dependencies</span>
+        <span class="count-badge" th:text="${totalUsed} + ' found'">0 found</span>
+    </div>
+    <p style="color:#64748b; font-size:0.85rem; margin-bottom:20px;">
+        These are declared in your <code>pom.xml</code> and physically present in the JAR.
+    </p>
+
+    <div class="card-grid" th:if="${not #lists.isEmpty(usedDeps)}">
+        <div class="dep-card used" th:each="dep : ${usedDeps}">
+            <span class="status-tag">✅ Active</span>
+            <div class="artifact-id" th:text="${dep.artifactId}">artifactId</div>
+            <div class="description" th:text="${dep.description}">Description here.</div>
+        </div>
+    </div>
+
+    <div class="empty-state" th:if="${#lists.isEmpty(usedDeps)}">
+        No matching used dependencies found.
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- ── SECTION 2: UNUSED / BLOAT (RED) ── -->
+    <div class="section-title">
+        <span>⚠️ Potentially Unused (Bloat)</span>
+        <span class="count-badge" th:text="${totalUnused} + ' found'">0 found</span>
+    </div>
+    <p style="color:#64748b; font-size:0.85rem; margin-bottom:20px;">
+        These are declared in your <code>pom.xml</code> but were <strong>not detected</strong>
+        in the JAR's <code>BOOT-INF/lib/</code>. Consider reviewing these.
+    </p>
+
+    <div class="card-grid" th:if="${not #lists.isEmpty(unusedDeps)}">
+        <div class="dep-card unused" th:each="dep : ${unusedDeps}">
+            <span class="status-tag">⚠️ Unconfirmed</span>
+            <div class="artifact-id" th:text="${dep.artifactId}">artifactId</div>
+            <div class="description" th:text="${dep.description}">Description here.</div>
+        </div>
+    </div>
+
+    <div class="empty-state" th:if="${#lists.isEmpty(unusedDeps)}">
+        🎉 No bloat detected! Every declared dependency was found in the JAR.
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- ── SECTION 3: TRANSITIVE DEPENDENCIES (BLUE) ── -->
+    <div class="section-title">
+        <span>🔗 Transitive Dependencies</span>
+        <span class="count-badge" th:text="${totalTransitive} + ' found'">0 found</span>
+    </div>
+    <p style="color:#64748b; font-size:0.85rem; margin-bottom:20px;">
+        These libraries are physically bundled inside the JAR but are
+        <strong>not declared</strong> in your <code>pom.xml</code>. They were pulled in
+        automatically by Maven as indirect dependencies.
+    </p>
+
+    <div class="card-grid" th:if="${not #lists.isEmpty(transitiveDeps)}">
+        <div class="dep-card transitive" th:each="dep : ${transitiveDeps}">
+            <span class="status-tag">🔗 Transitive</span>
+            <div class="artifact-id" th:text="${dep.artifactId}">artifactId</div>
+            <div class="description" th:text="${dep.description}">Description here.</div>
+        </div>
+    </div>
+
+    <div class="empty-state" th:if="${#lists.isEmpty(transitiveDeps)}">
+        No transitive-only dependencies found.
+    </div>
+
+</div><!-- end max-w -->
+</body>
+</html>

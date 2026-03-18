@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Dependency Tracker — Upload</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 48px;
+            width: 100%;
+            max-width: 560px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: -0.5px;
+        }
+
+        .logo p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 6px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #1e3a5f;
+            color: #38bdf8;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid #2563eb44;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .upload-group {
+            margin-bottom: 22px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .file-zone {
+            border: 2px dashed #334155;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+            background: #0f172a;
+        }
+
+        .file-zone:hover {
+            border-color: #38bdf8;
+            background: #0f2137;
+        }
+
+        .file-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .file-icon { font-size: 2rem; margin-bottom: 8px; }
+
+        .file-zone p {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .file-zone .file-name {
+            color: #38bdf8;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .hint {
+            margin-top: 10px;
+            color: #94a3b8;
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        .hint code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: #0b1220;
+            border: 1px solid #243244;
+            padding: 1px 6px;
+            border-radius: 6px;
+            color: #e2e8f0;
+        }
+
+        .error-box {
+            background: #450a0a;
+            border: 1px solid #991b1b;
+            border-radius: 8px;
+            padding: 14px 18px;
+            color: #fca5a5;
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #2563eb, #38bdf8);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            letter-spacing: 0.3px;
+        }
+
+        .submit-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+        .submit-btn:active { transform: translateY(0); }
+
+        .info {
+            margin-top: 20px;
+            text-align: center;
+            color: #475569;
+            font-size: 0.8rem;
+        }
+
+        .spinner { display: none; }
+        .submit-btn.loading .spinner { display: inline-block; }
+
+        /* Loading state */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .loading-overlay.active { display: flex; }
+
+        .spinner-ring {
+            width: 52px;
+            height: 52px;
+            border: 4px solid #334155;
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-overlay p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Loading overlay shown during analysis -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-ring"></div>
+    <p>Analyzing dependencies with AI... please wait</p>
+</div>
+
+<div class="container">
+    <div class="logo">
+        <h1>🔍 Dependency Tracker</h1>
+        <p>Upload your pom.xml and compiled JAR to detect bloat</p>
+        <span class="badge">Powered by Gemini AI</span>
+    </div>
+
+    <!-- Error message from controller, shown only if present -->
+    <div class="error-box" th:if="${error}" th:text="${error}"></div>
+
+    <!-- Upload form — sends files to POST /analyze -->
+    <form action="/analyze" method="post" enctype="multipart/form-data" id="uploadForm">
+
+        <!-- pom.xml upload -->
+        <div class="upload-group">
+            <label for="pomFile">📄 pom.xml file</label>
+            <div class="file-zone" id="pomZone">
+                <input type="file" name="pomFile" id="pomFile" accept=".xml"
+                       onchange="showFileName(this, 'pomZone')" required/>
+                <div class="file-icon">📋</div>
+                <p>Click to upload <strong>pom.xml</strong></p>
+            </div>
+        </div>
+
+        <!-- .jar upload -->
+        <div class="upload-group">
+            <label for="jarFile">📦 Executable .jar file</label>
+            <div class="file-zone" id="jarZone">
+                <input type="file" name="jarFile" id="jarFile" accept=".jar"
+                       onchange="showFileName(this, 'jarZone')" required/>
+                <div class="file-icon">☕</div>
+                <p>Click to upload <strong>.jar</strong> file</p>
+            </div>
+            <div class="hint">
+                If you need to generate the JAR first, build your project, then upload the file from your project’s
+                <code>target\</code> folder (example: <code>target\dependency-tracker-0.0.1-SNAPSHOT.jar</code>).
+                Avoid the <code>.jar.original</code> file.
+            </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+            Analyze Dependencies →
+        </button>
+    </form>
+
+    <p class="info">Analysis may take a few seconds while AI generates descriptions</p>
+</div>
+
+<script>
+    // Show file name in the drop zone after selection
+    function showFileName(input, zoneId) {
+        const zone = document.getElementById(zoneId);
+        const p = zone.querySelector('p');
+        if (input.files.length > 0) {
+            p.innerHTML = `<span class="file-name">✅ ${input.files[0].name}</span>`;
+        }
+    }
+
+    // Show loading overlay when form is submitted
+    document.getElementById('uploadForm').addEventListener('submit', function () {
+        document.getElementById('loadingOverlay').classList.add('active');
+        document.getElementById('submitBtn').textContent = 'Analyzing...';
+        document.getElementById('submitBtn').disabled = true;
+    });
+</script>
+
+</body>
+</html>
